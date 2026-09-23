@@ -80,10 +80,3 @@ packages/
 docs/         Architecture notes and demo script
 ```
 
-## Status
-
-🚧 Under active development for the MongoDB hackathon.
-
-## Team
-
-Built by [@Noyoucringe](https://github.com/Noyoucringe) and team.
