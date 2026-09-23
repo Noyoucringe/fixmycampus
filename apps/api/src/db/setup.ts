@@ -1,3 +1,4 @@
+import { config } from 'dotenv'; config({ path: new URL('../../../.env', import.meta.url).pathname });
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 
@@ -165,3 +166,4 @@ async function setup() {
 }
 
 setup().catch(console.error);
+

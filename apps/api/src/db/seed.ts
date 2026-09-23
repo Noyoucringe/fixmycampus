@@ -1,3 +1,4 @@
+import { config } from 'dotenv'; config({ path: new URL('../../../.env', import.meta.url).pathname });
 import 'dotenv/config';
 import { MongoClient, ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
@@ -304,3 +305,4 @@ async function seed() {
 }
 
 seed().catch(console.error);
+

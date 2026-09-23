@@ -1,3 +1,4 @@
+import { config } from 'dotenv'; config({ path: new URL('../../.env', import.meta.url).pathname });
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -52,3 +53,4 @@ process.on('SIGTERM', () => {
 });
 
 start().catch(console.error);
+

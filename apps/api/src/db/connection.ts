@@ -1,3 +1,4 @@
+import { config } from 'dotenv'; config({ path: new URL('../../../.env', import.meta.url).pathname });
 import { MongoClient, Db, GridFSBucket } from 'mongodb';
 
 let client: MongoClient;
@@ -32,3 +33,4 @@ export function getGridFS(): GridFSBucket {
   if (!gridfs) throw new Error('Database not connected');
   return gridfs;
 }
+
