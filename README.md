@@ -1,29 +1,94 @@
-# FixMyCampus
+<div align="center">
 
-> AI-powered campus and civic issue reporter built on **MongoDB Atlas**. It uses vector + geo hybrid search to catch duplicate reports, change streams to update the map live, and time-series collections for analytics.
+# 📍 FixMyCampus
 
-Students and citizens report problems (broken streetlights, water leaks, potholes, dirty washrooms, WiFi outages) with a photo, a description, and a location. As a user types, FixMyCampus uses **Atlas Vector Search combined with a geospatial filter** to find semantically similar open issues within ~200 m, and suggests: *"This looks already reported — upvote it instead?"* Admins watch new issues appear on a **live map**, assign them to departments inside **ACID transactions**, and track trends on an **analytics dashboard**.
+### Report it once. MongoDB makes sure it's fixed once.
+
+**An AI-powered campus and civic issue reporter where every core feature runs on a native MongoDB capability.**
+
+![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+![Vector Search](https://img.shields.io/badge/Atlas-Vector%20Search-13AA52)
+![Change Streams](https://img.shields.io/badge/Change-Streams-13AA52)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+
+[🎥 Demo Video](#) · [🌐 Live Demo](#) · [📐 Architecture](docs/ARCHITECTURE.md)
+
+</div>
 
 ---
 
-## Why MongoDB
+## 🚨 The problem
 
-Every feature here exists because the product needs it, not only to tick a box.
+Campuses and cities don't suffer from a lack of reports. They suffer from **duplicate, scattered, untracked** ones. Ten students report the same leaking pipe in ten different ways, and the admin sees ten tickets with no shared context and no way to tell they're the same problem.
 
-| MongoDB feature | Where it's used | Why |
+## 💡 The solution
+
+FixMyCampus turns MongoDB into the brain of the reporting flow:
+
+1. **A student types** *"water dripping near block C stairs."*
+2. **Atlas Vector Search + geospatial filtering** finds open issues that *mean* the same thing within ~200 m.
+3. The app suggests: *"This looks already reported. Upvote it instead?"*
+4. **Change Streams** push every new or updated issue to the admin's **live map** instantly.
+5. Admins assign issues inside an **ACID transaction**, and the **aggregation dashboard** shows what's actually going wrong on campus.
+
+> **No keyword matching. No manual dedup. No polling.** Just MongoDB doing what it does best.
+
+---
+
+## 🍃 MongoDB at the core
+
+Every feature exists because the product needs it, not to tick a box.
+
+| MongoDB capability | Where it's used | Why it matters |
 |---|---|---|
-| **Atlas Vector Search** | Duplicate detection (`POST /api/issues/similar`) | Finds reports that *mean* the same thing even when the wording differs |
-| **Geospatial queries** (`2dsphere`, `$geoNear`, `$geoWithin`) | Nearby issues, map viewport loading, duplicate radius filter | A leak in Block C is only a duplicate if it's *near* the other one |
-| **Atlas Search** | Full-text search with fuzzy matching, autocomplete, facets, highlights | Fast, typo-tolerant search with category and status counts |
-| **Change Streams** (with resume tokens) | Live map and department feeds over Socket.IO | New and updated issues appear on screen instantly |
-| **Aggregation pipelines** (`$facet`, `$lookup`, `$bucket`, `$setWindowFields`, `$dateDiff`) | Analytics dashboard | Overview, department performance, hotspots, SLA breaches |
-| **Time-series collections** | `issue_events` trend analytics | Efficient storage and querying of lifecycle events over time |
-| **Multi-document transactions** | Assigning and resolving issues | Updates the issue, department workload, and audit log atomically |
-| **GridFS** | Issue photo storage | Stores images alongside the data, streamed back on demand |
-| **Schema design** (`$jsonSchema` validation, polymorphic docs, subset pattern) | `issues` collection | Category-specific fields, bounded embedded comments and status history |
-| **Index strategy** (compound ESR, partial, unique) | `db/setup.ts` | Every hot query is served by an `IXSCAN`, verified with `explain()` |
+| 🧠 **Atlas Vector Search** | Duplicate detection (`POST /api/issues/similar`) | Matches reports by *meaning*, even when the wording differs |
+| 🌍 **Geospatial** (`2dsphere`, `$geoNear`, `$geoWithin`) | Nearby issues, map viewport loading, duplicate radius | A leak in Block C is only a duplicate if it's *near* the other one |
+| 🔎 **Atlas Search** | Fuzzy full-text search, autocomplete, facets, highlights | Typo-tolerant search with live category and status counts |
+| ⚡ **Change Streams** (with resume tokens) | Live map and department feeds via Socket.IO | Real-time updates with no polling, and no missed events after a reconnect |
+| 📊 **Aggregation pipelines** (`$facet`, `$lookup`, `$bucket`, `$setWindowFields`, `$dateDiff`) | Analytics dashboard | Overview, department performance, hotspots, SLA breaches, all computed in the database |
+| ⏱️ **Time-series collections** | `issue_events` trend analytics | Efficient storage and querying of lifecycle events over time |
+| 🔐 **Multi-document ACID transactions** | Assigning and resolving issues | Issue, department workload, and audit log update atomically or not at all |
+| 🖼️ **GridFS** | Issue photo storage | Images live beside the data and stream back on demand |
+| 🧱 **Schema design** (`$jsonSchema` validation, polymorphic documents, subset pattern) | `issues` collection | Category-specific fields, bounded embedded comments and status history |
+| 🚀 **Index strategy** (compound ESR, partial, unique) | `db/setup.ts` | Every hot query is served by an `IXSCAN`, verified with `explain()` |
 
-## Architecture
+> 💬 **Design choice:** we use the **official `mongodb` driver with no ODM** (no Mongoose), so every MongoDB feature is used directly and nothing is hidden behind an abstraction.
+
+---
+
+## 🎬 How it works
+
+### 1. Duplicate detection: vector + geo hybrid search
+Report text is embedded and matched against open issues with Atlas Vector Search. The results are then constrained to a ~200 m radius with a geospatial filter. Semantic similarity alone finds *similar* problems, and adding location finds *the same* problem.
+
+```js
+// Illustrative shape of the hybrid query
+db.issues.aggregate([
+  { $vectorSearch: {
+      index: "issue_vector_idx",
+      path: "embedding",
+      queryVector,
+      numCandidates: 100,
+      limit: 10,
+      filter: { status: "open" }
+  }},
+  { $match: { location: { $geoWithin: { $centerSphere: [[lng, lat], 200 / 6378100] } } } },
+  { $project: { title: 1, status: 1, score: { $meta: "vectorSearchScore" } } }
+])
+```
+
+### 2. Live operations: Change Streams
+A change stream on `issues` feeds Socket.IO. New reports and status changes appear on the admin map and department feeds within moments. **Resume tokens** mean a dropped connection replays missed events instead of losing them.
+
+### 3. Integrity: transactions
+Assigning an issue touches three things: the **issue**, the **department workload**, and the **audit log**. A multi-document transaction guarantees all three change together, or none do.
+
+### 4. Insight: aggregation + time-series
+The dashboard is powered by aggregation pipelines running inside MongoDB: `$facet` for multi-panel overviews, `$setWindowFields` for trends, `$dateDiff` for SLA breach detection, and `$bucket` for distributions. Lifecycle events land in a **time-series collection** built for exactly this workload.
+
+---
+
+## 🏗️ Architecture
 
 ```mermaid
 flowchart LR
@@ -40,36 +105,38 @@ flowchart LR
   end
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the schema design, index strategy, and pipeline walkthroughs.
+Deep dive on schema design, index strategy, and pipeline walkthroughs: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
-## Screenshots
+## 📸 Screenshots
 
-> _Coming soon: live map, duplicate detection, admin dashboard._
+| Live admin map | Duplicate detection | Analytics dashboard |
+|---|---|---|
+| _add screenshot_ | _add screenshot_ | _add screenshot_ |
 
-## Tech stack
+## 🧰 Tech stack
 
-- **Frontend:** React, Vite, TypeScript, TailwindCSS, react-leaflet, Recharts, TanStack Query, socket.io-client
-- **Backend:** Node 20, TypeScript, Express, official `mongodb` driver (no Mongoose, by design), Socket.IO, zod, JWT
-- **Database:** MongoDB Atlas (Vector Search, Atlas Search, Change Streams, Time Series, GridFS, Transactions)
-- **Embeddings:** pluggable (Gemini `text-embedding-004`, OpenAI `text-embedding-3-small`, or a local fallback that needs no API key)
+| Layer | Technology |
+|---|---|
+| **Database** | **MongoDB Atlas**: Vector Search, Atlas Search, Change Streams, Time Series, GridFS, Transactions |
+| **Backend** | Node 20, TypeScript, Express, official `mongodb` driver, Socket.IO, zod, JWT |
+| **Frontend** | React, Vite, TypeScript, TailwindCSS, react-leaflet, Recharts, TanStack Query |
+| **Embeddings** | Pluggable: Gemini, OpenAI, or a local fallback that needs no API key |
 
-## Quick start
+## ⚙️ Run it locally
 
-1. **Create an Atlas cluster.** A free M0 cluster works. Add your IP to the access list and copy the connection string.
-2. **Configure your environment:**
-   ```bash
-   cp .env.example .env   # fill in MONGODB_URI, JWT_SECRET, and optionally GEMINI_API_KEY
-   ```
-3. **Install, set up the database, and seed demo data:**
-   ```bash
-   npm install
-   npm run db:setup   # collections, validators, indexes, search indexes
-   npm run seed       # departments, users, ~150 campus issues
-   npm run dev        # starts the API and the web app
-   ```
-4. Log in
+```bash
+# 1. Create a free M0 Atlas cluster and add your IP to the access list
+# 2. Configure environment
+cp .env.example .env      # set MONGODB_URI and JWT_SECRET (embedding key optional)
 
-## Project structure
+# 3. Install, provision the database, seed demo data, run
+npm install
+npm run db:setup          # collections, validators, indexes, search indexes
+npm run seed              # departments, users, ~150 campus issues
+npm run dev               # API + web app
+```
+
+## 📁 Project structure
 
 ```
 apps/
@@ -80,3 +147,21 @@ packages/
 docs/         Architecture notes and demo script
 ```
 
+## 👥 Team LogicNest
+
+Built for *Code for Change with MongoDB*
+
+| # | Name | Department |
+|---|------|------------|
+| 1 | Meghamsh Anirudh Pulivendala | CSE |
+| 2 | Puligadda Srirama Bharath | CSE |
+| 3 | Ponugoti Ranadeep | CSE |
+| 4 | S. Jeathraditya | CSE |
+
+---
+
+<div align="center">
+
+**Built on MongoDB Atlas. Every feature earns its place.** 🍃
+
+</div>
