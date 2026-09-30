@@ -67,7 +67,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the schema design, index 
    npm run seed       # departments, users, ~150 campus issues
    npm run dev        # starts the API and the web app
    ```
-4. Log in as `admin@fixmycampus.dev` / `Admin@123`.
+4. Log in
 
 ## Project structure
 
