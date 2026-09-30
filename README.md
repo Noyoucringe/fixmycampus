@@ -46,6 +46,13 @@ flowchart LR
     DB --- GFS[(GridFS photos)]
   end
 ```
+## Technologies Used
+
+- MongoDB Atlas
+- TypeScript
+- React
+- Node.js
+- AI-powered search
 
 Schema design, index strategy, and pipeline walkthroughs are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
